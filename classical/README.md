@@ -11,7 +11,7 @@ Projects that use classical planning will use either:
 ## Suggested Projects
 
 Students who wish to use classical planning for their projects will need to implement the planner themselves (so, will not be able to use any existing planner). 
-The implemented planner may be propositional (to limit the time spent dealing with unification)
+The implemented planner may be [propositional](https://github.com/pucrs-automated-planning/pddl-parser) (to limit the time spent dealing with unification)
 
 Good choices for classical planning algorithms include:
 
