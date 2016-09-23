@@ -1,4 +1,4 @@
-# Classical Planning Projects
+# HTN Planning Projects
 
 ## Implementation Requirements
 
@@ -14,4 +14,5 @@ Projects that use classical planning will use:
 
 Students who wish to use HTN planning for their projects may choose not to implement a planner, suggested projects include:
 
+- Exploration of JSHOP2 external calls (using the ``call`` statement) to take advantage of specific solvers.
 - Send me your ideas!
