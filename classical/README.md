@@ -11,12 +11,15 @@ Projects that use classical planning will use either:
 ## Suggested Projects
 
 Students who wish to use classical planning for their projects will need to implement the planner themselves (so, will not be able to use any existing planner). 
-The implemented planner may be [propositional](https://github.com/pucrs-automated-planning/pddl-parser) (to limit the time spent dealing with unification)
+The implemented planner may be [propositional](https://github.com/pucrs-automated-planning/pddl-parser) (to limit the time spent dealing with unification).
+
+Suggested projects include:
+
+- Implement an heuristic function tailored to a complex domain, make simple planners much faster.
+- Explore cost and time of actions to minimize effort and duration of plans, required in some domains.
 
 Good choices for classical planning algorithms include:
 
 - [Graphplan](http://www.sciencedirect.com/science/article/pii/S0004370296000471)
 - [Heuristic](http://www.sciencedirect.com/science/article/pii/S0004370201001084) search (Pyperplan uses this approach)
 - [SATisfiability](https://www.aaai.org/Papers/AAAI/1996/AAAI96-177.pdf) testing planning. Note that this may be a harder approach
-
-
