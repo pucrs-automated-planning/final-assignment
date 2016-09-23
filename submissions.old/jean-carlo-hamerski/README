@@ -1,0 +1,20 @@
+#########################################
+Título:		Framework para Análise de Mapeamento de Tarefas em Sistemas Multriprocessados Intra-Chip usando Planejamento Automático
+Autor:		Jean Carlo Hamerski
+Disciplina:	Planejamento Automático
+Prof.:		Felipe Meneguzzi
+#########################################
+
+O framework desenvolvido tem um script de execução automático, onde é necessário passar alguns parâmetros. 
+
+A ajuda do script pode ser visualizada através do seguinte comando: ./fr -h
+
+Exemplo de uma execução, onde é utilizada a aplicação MPEG, o planejador Metric-FF e um MPSoC 4x4: ./fr -x 4 -y 4 -p 0 -a 1
+
+Obs.1: Caso não seja possível executar o script, é necessário habilitar sua execução: chmod +x fr
+
+Obs.2: Ao executar o script, caso seja exibita a mensagem "Executing Metric-FF Planner: ./fr: line 177: Metric-FF-v2.1/ff: Permission denied", é necessário compilar novamente o planejador Metric-FF através do seguintes comandos:
+		$ cd Metric-FF-v2.1/
+		$ make clean
+		$ make
+		

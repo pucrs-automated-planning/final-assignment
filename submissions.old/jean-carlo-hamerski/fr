@@ -1,0 +1,264 @@
+#! /bin/sh
+#
+# Script to generate PDDL problem file and to execute planner.
+# Created by Jean Hamerski.
+# v. 1.0 - 23/11/2015
+#
+
+# default values
+X_DIM=4
+Y_DIM=4
+PLAN=0
+APP=0
+PDDL_PROBLEM_FILE_MAUPLANNER="problem_m.pddl"
+PDDL_PROBLEM_FILE_FF="problem_ff.pddl"
+PDDL_DOMAIN_FILE_MAUPLANNER="mpsoc_domain.pddl"
+PDDL_DOMAIN_FILE_FF="mpsoc_domain_ff.pddl"
+
+function PrintUsage() {
+    echo ""
+	echo "usage of fr:"
+	echo ""
+	echo "OPTIONS   DESCRIPTIONS"
+	echo ""
+	echo "-x <int>    Dimension X of the MPSoC (default=3)"
+	echo ""
+	echo "-y <int>    Dimension Y of the MPSoC (default=3)"
+	echo ""
+	echo "-p <int>    Planner Setting:"
+	echo "     0      Metric-FF (default)"
+	echo "     1      MauPlanner"
+	echo ""
+	echo "-a <int>    Application Setting:"
+	echo "     0      MPEG-4 (default)"
+	echo "     1      VOP - Video Object Plane Decoder"
+	echo "     2      MWD - Multi-Window Display"
+	echo "     3      RBERG - Romberg Integration"
+	echo ""
+	echo "Example: ./fr -x 4 -y 4 -p 0 -a 0"
+	echo ""
+    exit 1
+}
+
+function GeneratePddlProblem() {
+	echo "Generating PDDL Problem File: '$1' ..."
+	if [ $APP -eq 0 ]; then
+		N_TASKS=13
+		APP_FILE="apps/mpeg.txt"
+	elif [ $APP -eq 1 ]; then
+		N_TASKS=13
+		APP_FILE="apps/vopd.txt"
+	elif [ $APP -eq 2 ]; then
+		N_TASKS=12
+		APP_FILE="apps/mwd.txt"
+	elif [ $APP -eq 3 ]; then
+		N_TASKS=10
+		APP_FILE="apps/integral.txt"
+	else 
+		echo "ERROR!! - Enter with APP id (-a) between 0 and 3."
+		echo ""
+		exit
+	fi
+	if [ $X_DIM -lt 3 ]; then
+		echo "ERROR!! - Enter with X dimension (-x) greater than or equal to 3."
+		echo ""
+		exit
+	elif [ $Y_DIM -lt 3 ]; then
+		echo "ERROR!! - Enter with Y dimension (-y) greater than or equal to 3."
+		echo ""
+		exit
+	fi
+	N_PROCS=$(( X_DIM * Y_DIM ))
+	if [ $N_PROCS -lt $N_TASKS ]; then
+		echo "	ERROR!! - Number of processors ($N_PROCS) less than number of tasks ($N_TASKS). Increase the MPSoC dimension."
+		echo ""
+		exit
+	fi
+	printf "(define (problem mapping)\n" >> $1
+	printf "	(:domain mpsoc)\n" >> $1
+	printf "	(:objects" >> $1
+	for ((i=1; i <= $X_DIM; i++)) 
+	do 
+		for ((j=1; j <= $Y_DIM; j++)) 
+		do
+			printf " pe%d-%d" "$i" "$j" >> $1
+		done
+	done
+	for ((i=0; i <= $N_TASKS-1; i++))
+	do 
+		printf " t%d" "$i" >> $1
+	done
+	printf ")\n" >> $1
+	printf "	(:init\n" >> $1
+	for ((i=1; i <= $X_DIM; i++)) 
+	do 
+		for ((j=1; j <= $Y_DIM; j++)) 
+		do
+			printf "		(pe pe%d-%d)\n" "$i" "$j" >> $1
+		done
+	done
+	printf "\n" >> $1
+	for ((i=1; i <= $X_DIM; i++)) 
+	do 
+		for ((j=1; j <= $Y_DIM; j++)) 
+		do
+			printf "		(not-full pe%d-%d)\n" "$i" "$j" >> $1
+		done
+	done
+	printf "\n" >> $1
+	for ((i=0; i <= $N_TASKS-1; i++)) 
+	do 
+		printf "		(not-mapped t%d)\n" "$i" >> $1
+	done
+	printf "\n" >> $1
+	cat $APP_FILE >> $1
+	printf "\n\n" >> $1
+	for ((i=1; i <= $X_DIM; i++)) 
+	do 
+		for ((j=1; j <= $Y_DIM; j++)) 
+		do
+			for ((k=1; k <= $X_DIM; k++)) 
+			do
+				for ((l=1; l <= $Y_DIM; l++)) 
+				do
+					if [ $k -ne $i ] || [ $l -ne $j ]; then
+						if [ $k -ge $i ] 
+						then 
+							let ki=k-i
+						else 
+							let ki=i-k
+						fi
+						if [ $l -ge $j ] 
+						then 
+							let lj=l-j
+						else 
+							let lj=j-l
+						fi
+						let cost=ki+lj
+						printf "		(= (cost pe%d-%d pe%d-%d) %d)\n" "$i" "$j" "$k" "$l" "$cost" >> $1
+					fi
+				done
+			done
+		done
+	done
+	printf "\n" >> $1
+	printf "		(= (total-cost) 0)\n\n" >> $1
+	printf "		)\n\n" >> $1
+	printf "	(:goal (and" >> $1
+	for ((i=0; i <= $N_TASKS-1; i++)) 
+	do 
+		printf " (not (not-mapped t%d))" "$i" >> $1
+	done
+	printf "))\n\n" >> $1
+	printf "	(:metric minimize (total-cost))\n" >> $1
+	printf "	)\n" >> $1
+	echo "	PDDL Problem File '$1' generated with success!!"
+	echo ""
+}
+
+spinner()
+{
+    local pid=$!
+    local delay=0.75
+    local spinstr='|/-\'
+    while [ "$(ps a | awk '{print $1}' | grep $pid)" ]; do
+        local temp=${spinstr#?}
+        printf " [%c]  " "$spinstr"
+        local spinstr=$temp${spinstr%"$temp"}
+        sleep $delay
+        printf "\b\b\b\b\b\b"
+    done
+    printf "    \b\b\b\b"
+}
+
+function ExecuteMetricFF() {
+	printf "Executing Metric-FF Planner: "
+	START=$(date +%s)
+	Metric-FF-v2.1/ff -o $PDDL_DOMAIN_FILE_FF -f $PDDL_PROBLEM_FILE_FF -s 3 > results/$RESULT_FILE & spinner
+	END=$(date +%s)
+	DIFF=$(( $END - $START ))
+	echo ""
+	echo "	Metric-FF Planner executed with success!! It took $DIFF seconds. Results in 'results/$RESULT_FILE'."
+	echo ""
+}
+
+function ExecuteMauPlanner() {
+	printf "Executing MauPlanner Planner: "
+	START=$(date +%s)
+	ruby MauPlanner/MauPlanner.rb $PDDL_DOMAIN_FILE_MAUPLANNER $PDDL_PROBLEM_FILE_MAUPLANNER -algorithm minimize > results/$RESULT_FILE & spinner
+	END=$(date +%s)
+	DIFF=$(( $END - $START ))
+	echo ""
+	echo "	MauPlanner Planner executed with success!! It took $DIFF seconds. Results in 'results/$RESULT_FILE'."
+	echo ""
+}
+
+function ExecutePlanner() {
+	case $PLAN in
+		0) ExecuteMetricFF
+			;;
+		1) ExecuteMauPlanner
+		    ;;
+		?) 	echo "ERROR!! - Enter with PLANNER id (-a) between 0 and 1."
+			echo ""
+			;;
+	esac
+}
+
+while getopts "hx:y:p:a:r:" OPTION
+do
+   case $OPTION in
+      h) PrintUsage
+         ;;
+      x) X_DIM=$OPTARG
+         ;;
+      y) Y_DIM=$OPTARG
+         ;;
+      p) PLAN=$OPTARG
+         ;;
+      a) APP=$OPTARG
+         ;;
+	  ?) PrintUsage
+         ;;
+   esac
+done
+
+echo ""
+echo "Executing: ./fr -x $X_DIM -y $Y_DIM -p $PLAN -a $APP"
+echo ""
+echo "-x <int>    Dimension X of the MPSoC (default=3)"
+echo "-y <int>    Dimension Y of the MPSoC (default=3)"
+echo "-p <int>    Planner Setting:"
+echo "     0      Metric-FF (default)"
+echo "     1      MauPlanner"
+echo "-a <int>    Application Setting:"
+echo "     0      MPEG-4 (default)"
+echo "     1      VOP - Video Object Plane Decoder"
+echo "     2      MWD - Multi-Window Display"
+echo "     3      RBERG - Romberg Integration"
+echo ""
+
+shift $((OPTIND-1))
+
+if [ $PLAN -eq 0 ]; then
+	if [ -f $PDDL_PROBLEM_FILE_FF ]
+	then
+		rm $PDDL_PROBLEM_FILE_FF
+	fi
+	GeneratePddlProblem $PDDL_PROBLEM_FILE_FF
+elif [ $PLAN -eq 1 ]; then
+	if [ -f $PDDL_PROBLEM_FILE_MAUPLANNER ]
+	then
+		rm $PDDL_PROBLEM_FILE_MAUPLANNER
+	fi
+	GeneratePddlProblem $PDDL_PROBLEM_FILE_MAUPLANNER
+fi
+
+RESULT_FILE="result-x_$X_DIM-y_$Y_DIM-p_$PLAN-a_$APP.txt"
+
+if [ -f result/$RESULT_FILE ]
+then
+	rm result/$RESULT_FILE
+fi
+
+ExecutePlanner

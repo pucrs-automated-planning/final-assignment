@@ -1,0 +1,8 @@
+(forwardfromclient h1 sw2)
+(forwardpacket sw2 sw1)
+(forwardpacket sw1 sw3)
+(forwardtodevice sw3 fw)
+(forwardfromdevice fw sw3)
+(forwardpacket sw3 sw1)
+(forwardpacket sw1 sw2)
+(forwardtoclient sw2 h2)
